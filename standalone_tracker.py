@@ -16,7 +16,7 @@ print("------------------")
 # Hardcoded Backup (ONLY use this if your repository is strictly PRIVATE!)
 # If GitHub secrets keep failing, you can paste your strings directly below:
 if not TELEGRAM_BOT_TOKEN:
-    TELEGRAM_BOT_TOKEN = "YOUR_ACTUAL_BOT_TOKEN_HERE"  # e.g., "8747316097:AAFi..."
+    TELEGRAM_BOT_TOKEN = "8747316097:AAFiSkcBPt1pYuZkHNirnxqUAAerzOjQVoQ"  # e.g., "8747316097:AAFi..."
 if not TELEGRAM_CHAT_ID:
     TELEGRAM_CHAT_ID = "624616966"
 
