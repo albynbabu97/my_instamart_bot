@@ -5,7 +5,7 @@ import requests
 from playwright.sync_api import sync_playwright
 
 # 1. Load Secrets securely from GitHub Environment Variables
-TELEGRAM_BOT_TOKEN = os.environ.get("AAFiSkcBPt1pYuZkHNirnxqUAAerzOjQVoQ")
+TELEGRAM_BOT_TOKEN = os.environ.get("8747316097:AAFiSkcBPt1pYuZkHNirnxqUAAerzOjQVoQ")
 TELEGRAM_CHAT_ID = os.environ.get("624616966")
 
 # 2. Define the items you want to monitor here (Item Name, Pincode)
