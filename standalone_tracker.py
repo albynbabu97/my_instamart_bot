@@ -4,9 +4,21 @@ import urllib.parse
 import requests
 from playwright.sync_api import sync_playwright
 
-# 1. Load Secrets securely from GitHub Environment Variables
-TELEGRAM_BOT_TOKEN = os.environ.get("AAFiSkcBPt1pYuZkHNirnxqUAAerzOjQVoQ")
-TELEGRAM_CHAT_ID = os.environ.get("624616966")
+# Enhanced Loading Block
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+
+print("--- DEBUG INFO ---")
+print(f"Is BOT_TOKEN detected?: {'YES (Length: ' + str(len(TELEGRAM_BOT_TOKEN)) + ')' if TELEGRAM_BOT_TOKEN else 'NO'}")
+print(f"Is CHAT_ID detected?: {'YES' if TELEGRAM_CHAT_ID else 'NO'}")
+print("------------------")
+
+# Hardcoded Backup (ONLY use this if your repository is strictly PRIVATE!)
+# If GitHub secrets keep failing, you can paste your strings directly below:
+if not TELEGRAM_BOT_TOKEN:
+    TELEGRAM_BOT_TOKEN = "YOUR_ACTUAL_BOT_TOKEN_HERE"  # e.g., "8747316097:AAFi..."
+if not TELEGRAM_CHAT_ID:
+    TELEGRAM_CHAT_ID = "624616966"
 
 # 2. Define the items you want to monitor here (Item Name, Pincode)
 WATCHLIST = [
