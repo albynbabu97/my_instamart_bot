@@ -1,96 +1,96 @@
 import os
+import sys
 import json
 import urllib.parse
 import requests
 from playwright.sync_api import sync_playwright
 
-# 1. Load Secrets securely from GitHub Environment Variables
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def load_watchlist():
-    """Loads target configurations dynamically from the JSON schema file."""
     try:
-        with open("watchlist.json", "r") as file:
-            return json.load(file)
-    except Exception as e:
-        print(f"❌ Error reading watchlist.json: {e}")
+        with open("watchlist.json", "r") as f:
+            return json.load(f)
+    except:
         return []
 
-def send_telegram_alert(item_name, pincode):
-    """Sends a push notification directly to your phone."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Error: Telegram secrets are missing.")
-        return
-        
-    message = f"🚨 **INSTAMART STOCK ALERT** 🚨\n\n🟢 **'{item_name}'** is now back in stock at pincode **{pincode}**!\n\nOpen Instamart and place your order quickly!"
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    
-    try:
-        response = requests.post(url, json={
-            "chat_id": TELEGRAM_CHAT_ID, 
-            "text": message, 
-            "parse_mode": "Markdown"
-        })
-        if response.status_code == 200:
-            print(f"Notification sent successfully for {item_name}!")
-        else:
-            print(f"Telegram API Error: {response.text}")
-    except Exception as e:
-        print(f"Failed to connect to Telegram: {e}")
+def save_watchlist(data):
+    with open("watchlist.json", "w") as f:
+        json.dump(data, f, indent=2)
 
-def check_stock(pincode, item_name):
-    """Launches an isolated headless browser to track item availability."""
-    print(f"🔍 Checking: '{item_name}' for Pincode: {pincode}...")
-    
+def send_telegram_alert(item_name, status_message):
+    if not TELEGRAM_BOT_TOKEN: return
+    message = f"🚨 **INSTAMART UPDATE** 🚨\n\n📦 **Item:** {item_name}\n🔔 **Status:** {status_message}"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"})
+
+def check_stock_with_coordinates(url, lat, lng):
+    """Bypasses pincodes by injecting lat/long directly into browser context geolocation."""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
+        # Grant geo-location permissions and pass custom browser coordinates
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36"
+            user_agent="Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
+            permissions=["geolocation"],
+            geolocation={"latitude": float(lat), "longitude": float(lng)}
         )
         page = context.new_page()
         
         try:
-            page.goto("https://www.swiggy.com/instamart", timeout=45000)
-            page.wait_for_timeout(2000)
-            
-            if page.locator("text=Select Location").is_visible():
-                page.click("text=Select Location")
-                page.wait_for_selector("input[placeholder*='area']", timeout=5000)
-                page.fill("input[placeholder*='area']", pincode)
-                page.press("input[placeholder*='area']", "Enter")
-                page.wait_for_timeout(3000)
-            
-            encoded_query = urllib.parse.quote(item_name)
-            search_url = f"https://www.swiggy.com/instamart/search?item={encoded_query}"
-            page.goto(search_url, timeout=45000)
+            # Open product listing target URL directly
+            page.goto(url, timeout=45000)
             page.wait_for_timeout(4000)
             
+            # Fetch clean Item title from meta text
+            item_title = page.title().split('|')[0].strip()
+            if not item_title or "instamart" in item_title.lower():
+                item_title = "Target Product"
+
             page_source = page.content().lower()
             
-            if "out of stock" in page_source or "no results found" in page_source:
-                print(f"❌ '{item_name}' is currently out of stock.")
-                return "OUT_OF_STOCK"
+            if "out of stock" in page_source or "not available" in page_source:
+                return item_title, "OUT_OF_STOCK"
             elif "add" in page_source or "add to cart" in page_source:
-                print(f"✅ '{item_name}' is available!")
-                return "IN_STOCK"
-            else:
-                print("❓ Page text configuration changed or item ambiguous.")
-                return "UNKNOWN"
-                
+                return item_title, "IN_STOCK"
+            return item_title, "UNKNOWN"
         except Exception as e:
-            print(f"⚠️ Error scanning page: {e}")
-            return "ERROR"
+            print(f"Scraper error: {e}")
+            return "Product Link", "ERROR"
         finally:
             browser.close()
 
 if __name__ == "__main__":
-    watchlist = load_watchlist()
-    if not watchlist:
-        print("Watchlist empty or file failed to open. Terminating run.")
+    # Check if UI arguments were passed down
+    args = sys.argv[1:]
+    action_type = args[0] if len(args) > 0 else "CHECK"
+
+    if action_type == "ADD" and len(args) >= 4:
+        prod_url = args[1]
+        latitude = args[2]
+        longitude = args[3]
+        
+        print(f"Adding link to monitor: {prod_url} at [{latitude}, {longitude}]")
+        # Run test to retrieve product title and initial status
+        title, initial_status = check_stock_with_coordinates(prod_url, latitude, longitude)
+        
+        current_list = load_watchlist()
+        current_list.append({
+            "item_name": title,
+            "url": prod_url,
+            "latitude": latitude,
+            "longitude": longitude
+        })
+        save_watchlist(current_list)
+        print(f"Successfully tracked: {title}")
+        send_telegram_alert(title, f"Added to monitoring dashboard successfully! Current Status: {initial_status}")
+
     else:
-        print(f"Loaded {len(watchlist)} active item trackers from configuration database.")
-        for target in watchlist:
-            status = check_stock(target["pincode"], target["item_name"])
+        # Standard background cron routine loop
+        watchlist = load_watchlist()
+        print(f"Scanning {len(watchlist)} targets via coordinate sessions...")
+        for item in watchlist:
+            title, status = check_stock_with_coordinates(item["url"], item["latitude"], item["longitude"])
+            print(f"Result for {title}: {status}")
             if status == "IN_STOCK":
-                send_telegram_alert(target["item_name"], target["pincode"])
+                send_telegram_alert(title, f"🟢 Available right now at coordinates [{item['latitude']}, {item['longitude']}]!")

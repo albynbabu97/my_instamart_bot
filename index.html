@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instamart Tracker Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="max-w-2xl mx-auto p-6 mt-10 bg-white rounded-xl shadow-md">
+        <h1 class="text-2xl font-bold text-orange-500 mb-2">🛒 Instamart GPS Controller</h1>
+        <p class="text-sm text-gray-500 mb-6">Add search trackers using product links and map coordinates.</p>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold mb-1">GitHub Personal Access Token (PAT):</label>
+                <input type="password" id="pat" placeholder="ghp_xxxxxxxxxxxx" class="w-full border px-3 py-2 rounded-md focus:ring-2 focus:ring-orange-500 outline-none">
+                <p class="text-xs text-gray-400 mt-1">Stored locally in your browser. Needs repo/actions write permissions.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Owner (GitHub Username):</label>
+                    <input type="text" id="owner" placeholder="e.g., albyn_babu" class="w-full border px-3 py-2 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Repository Name:</label>
+                    <input type="text" id="repo" placeholder="e.g., instamart-tracker" class="w-full border px-3 py-2 rounded-md">
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Instamart Product URL:</label>
+                <input type="text" id="url" placeholder="https://www.swiggy.com/instamart/item/..." class="w-full border px-3 py-2 rounded-md">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Latitude:</label>
+                    <input type="text" id="lat" placeholder="e.g., 9.9312" class="w-full border px-3 py-2 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">Longitude:</label>
+                    <input type="text" id="lng" placeholder="e.g., 76.2673" class="w-full border px-3 py-2 rounded-md">
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="getCurrentLocation()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md font-medium text-sm hover:bg-gray-300">📍 Get Current GPS</button>
+                <button onclick="submitTarget()" id="btn" class="flex-1 bg-orange-500 text-white py-2 rounded-md font-bold hover:bg-orange-600">Add Product to Watchlist</button>
+            </div>
+            
+            <p id="msg" class="text-center text-sm font-semibold mt-2 text-gray-600"></p>
+        </div>
+    </div>
+
+    <script>
+        // Pre-fill setup parameters out of storage cache if saved previously
+        if(localStorage.getItem('git_pat')) document.getElementById('pat').value = localStorage.getItem('git_pat');
+        if(localStorage.getItem('git_owner')) document.getElementById('owner').value = localStorage.getItem('git_owner');
+        if(localStorage.getItem('git_repo')) document.getElementById('repo').value = localStorage.getItem('git_repo');
+
+        function getCurrentLocation() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                document.getElementById('lat').value = pos.coords.latitude.toFixed(4);
+                document.getElementById('lng').value = pos.coords.longitude.toFixed(4);
+            }, () => alert("Could not fetch GPS location automatically. Please insert manually."));
+        }
+
+        async function submitTarget() {
+            const token = document.getElementById('pat').value;
+            const owner = document.getElementById('owner').value;
+            const repo = document.getElementById('repo').value;
+            const prodUrl = document.getElementById('url').value;
+            const lat = document.getElementById('lat').value;
+            const lng = document.getElementById('lng').value;
+
+            if(!token || !owner || !repo || !prodUrl || !lat || !lng) {
+                alert("Please fill in all inputs before tracking.");
+                return;
+            }
+
+            // Save basic settings to local storage to avoid retyping on fresh visits
+            localStorage.setItem('git_pat', token);
+            localStorage.setItem('git_owner', owner);
+            localStorage.setItem('git_repo', repo);
+
+            const msg = document.getElementById('msg');
+            const btn = document.getElementById('btn');
+            msg.innerText = "Dispatching trigger request to GitHub Actions runner...";
+            btn.disabled = true;
+
+            const endpoint = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/tracker.yml/dispatches`;
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github+json',
+                    },
+                    body: JSON.stringify({
+                        ref: 'main',
+                        inputs: { 
+                            action_type: 'ADD', 
+                            product_url: prodUrl, 
+                            latitude: lat, 
+                            longitude: lng 
+                        }
+                    })
+                });
+
+                if(response.status === 204) {
+                    msg.innerHTML = "✅ SUCCESS! GitHub Actions has booted up.<br>Check your Telegram bot in ~2 minutes for configuration confirmation.";
+                    document.getElementById('url').value = "";
+                } else {
+                    const errData = await response.json();
+                    msg.innerText = `❌ Error: ${errData.message || 'Verification failed'}`;
+                }
+            } catch(e) {
+                msg.innerText = `❌ Request Failure: ${e.message}`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
