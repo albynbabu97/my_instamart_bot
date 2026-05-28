@@ -2,7 +2,7 @@ name: Instamart Stock Tracker Daemon
 
 on:
   schedule:
-    - cron: '7,22,37,52 * * * *'
+    - cron: '9,22,39,52 * * * *'
   workflow_dispatch:
 
 jobs:
