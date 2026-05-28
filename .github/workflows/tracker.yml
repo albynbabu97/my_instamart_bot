@@ -2,12 +2,17 @@ name: Instamart Stock Tracker Daemon
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Automatically triggers execution every 15 minutes, 24/7
-  workflow_dispatch:        # Adds a manual "Run Workflow" trigger button in your GitHub dashboard
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-tracker:
     runs-on: ubuntu-latest
+    
+    # Global environment mapping - this forces the secrets to load everywhere
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
     - name: Clone Code Repository
@@ -29,8 +34,4 @@ jobs:
         playwright install-deps chromium
 
     - name: Execute Tracker Task Script
-      env:
-        # Links your repository secret vault parameters securely to the local terminal runtime
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: python standalone_tracker.py
